@@ -187,6 +187,11 @@ Diese Übersicht ersetzt keine Rechtsberatung.
 
 ## 10. Business Model Canvas
 
+![Business Model Canvas: Der geprüfte Reparaturplan ist der Kern; Erlöse kommen aus Vermittlung und Lernen](docs/business-model-canvas.svg)
+
+<details>
+<summary>Canvas als Tabelle</summary>
+
 | Feld | Inhalt |
 | --- | --- |
 | Schlüsselpartner | Nachbarplattform (Werkzeugverleih, Crowd, Werkstätten), Hersteller (Handbücher), iFixit und wikiHow (Lizenz bzw. Link), Repair Cafés und Reparaturnetzwerke, KI-Anbieter, Versicherer |
@@ -198,6 +203,8 @@ Diese Übersicht ersetzt keine Rechtsberatung.
 | Kundensegmente | Heimwerker mit konkretem Defekt, Lernende ohne Vorerfahrung, Crowd (Prüfer und Ausführende), Werkstätten |
 | Kostenstruktur | KI-Nutzung pro Fall, Vergütung der Crowd-Prüfung, Lizenzen für Inhalte, Entwicklung und Betrieb, Kuratierung und Moderation, Versicherung und Recht |
 | Einnahmequellen | Provisionen auf Crowd-Einsatz, Werkstatt und Werkzeugleihe; Lernpfade mit Nachweis; Express-Prüfung; Lizenz der Planbibliothek |
+
+</details>
 
 Welche Einnahmequellen tragen, hängt von der Positionierung ab (siehe offene Entscheidungen).
 

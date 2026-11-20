@@ -5,6 +5,8 @@ Proof of Concept (PoC) und Prototyp für eine Lernplattform, die zu einem kaputt
 > **Status:** Konzeptphase, privates Repository · Stand: 20.11.2026
 >
 > **Konzeptdokument:** [Konzept: DIY-Reparatur-E-Learning „Wie repariere ich XY?“](https://claude.ai/artifact/CkPrLuHiYxptk8w6C2RDn7)
+>
+> **Klickbarer Prototyp:** [`prototyp/index.html`](prototyp/index.html) · [online ansehen](https://claude.ai/artifact/XBX9nBtBzV1tR932bG5sYn)
 
 ---
 
@@ -100,6 +102,22 @@ Der Prototyp folgt nur, wenn der PoC die Hypothesen trägt. Er bildet den ganzen
 | Risikostufe 3 | ausgeschlossen | nur Hinweis und Weg zur Werkstatt |
 | Kennzeichnung „KI-Entwurf“ / „von der Crowd geprüft“ | ja | ja |
 | Zahlungen | – | – |
+
+### Klickbarer Prototyp
+
+[`prototyp/index.html`](prototyp/index.html) ist eine eigenständige HTML-Seite ohne Build-Schritt und ohne Backend. Zum Öffnen die Datei im Browser laden. Zusätzlich liegt sie als [Artefakt](https://claude.ai/artifact/XBX9nBtBzV1tR932bG5sYn) online, privat für den Owner.
+
+Der Prototyp spielt einen Beispielfall durch: eine Waschmaschine des fiktiven Herstellers „Musterwerk“ mit Abpumpfehler F21, Risikostufe 2.
+
+| Bereich | Szenen |
+| --- | --- |
+| Ablauf | Start, Fall beschreiben (Typenschild, Fotos, Kaufdatum), KI-Recherche mit Quellen und Lizenzen, Plan als KI-Entwurf, Crowd-Prüfung, Rechte prüfen, Entscheidung |
+| Ausführung | Selbst (Werkzeugliste mit Leihe, Sicherheitscheck, Schritt-für-Schritt mit Abzweig bei defekter Pumpe), Crowd buchen, Werkstatt anfragen |
+| Abschluss | Rückmeldung mit Planbewertung und Freigabe für die Planbibliothek, Lernnachweis |
+| Lernmodi | Katalog mit Filter nach Risikostufe, Lernpfad mit Prüffragen und Abschlussnachweis, freier Use Case (nicht objektspezifisch) |
+| Crowd-Seite | Prüfmaske mit Prüfpunkten, Reputation und Interessenkonflikt-Regel |
+
+Simuliert sind KI-Recherche, Crowd-Prüfung, Leihe, Buchungen und Werkstattanfrage. Alle Namen, Preise und Zeiten sind Beispieldaten. Der Zustand lebt nur im Browser-Tab; „Prototyp zurücksetzen“ startet neu. Einzelne Szenen sind über den Anker direkt erreichbar, etwa `#entscheidung` oder `#pruefer`.
 
 ## 6. Architektur (Vorschlag)
 

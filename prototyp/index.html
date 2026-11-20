@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reparatur-Lernplattform Prototyp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: Werkbank-Ansicht. Links die Szenenliste für Reviews, rechts eine schmale App-Spalte wie auf dem Handy. */
+:root {
+  --bg: #e9ecef;
+  --surface: #ffffff;
+  --sunken: #f3f5f7;
+  --line: #cfd5dc;
+  --ink: #17202a;
+  --muted: #586472;
+  --primary: #1d3a5c;
+  --on-primary: #ffffff;
+  --signal: #f2c200;
+  --on-signal: #17202a;
+  --plate: #d6dbe1;
+  --plate-ink: #26303b;
+  --good: #1d7547;
+  --good-bg: #e3f2e9;
+  --warn: #9a5800;
+  --warn-bg: #fbefd9;
+  --crit: #b42318;
+  --crit-bg: #fbe5e3;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --surface: #1a2129; --sunken: #151b22; --line: #2d3742;
+    --ink: #e6ebf0; --muted: #9ba7b4; --primary: #8fb5e3; --on-primary: #0d1620;
+    --signal: #e8b900; --on-signal: #17202a; --plate: #2a333d; --plate-ink: #dfe5eb;
+    --good: #57c590; --good-bg: #16312a; --warn: #f0a63f; --warn-bg: #352812;
+    --crit: #f2786d; --crit-bg: #3a1c1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #1a2129; --sunken: #151b22; --line: #2d3742;
+  --ink: #e6ebf0; --muted: #9ba7b4; --primary: #8fb5e3; --on-primary: #0d1620;
+  --signal: #e8b900; --on-signal: #17202a; --plate: #2a333d; --plate-ink: #dfe5eb;
+  --good: #57c590; --good-bg: #16312a; --warn: #f0a63f; --warn-bg: #352812;
+  --crit: #f2786d; --crit-bg: #3a1c1a; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+}
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; margin: 0; text-wrap: balance; }
+h1 { font-size: 27px; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 19px; font-weight: 700; }
+h3 { font-size: 16px; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--primary); }
+:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; border-radius: 4px; }
+
+/* Topbar */
+.topbar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 800; font-size: 17px; }
+.brand-mark { width: 26px; height: 26px; border-radius: 6px; background: var(--signal); display: grid; place-items: center; }
+.proto-chip { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); }
+.topbar .spacer { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg a, .seg button {
+  font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 0; background: transparent;
+  color: var(--muted); text-decoration: none; cursor: pointer;
+}
+.seg a[aria-current="true"], .seg button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+#sceneSelect { display: none; font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+
+/* Shell */
+.shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: calc(100% - 53px); }
+.scenes { border-right: 1px solid var(--line); padding: 18px 14px; background: var(--sunken); }
+.scenes h4 { font-family: var(--font-body); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 18px 8px 6px; }
+.scenes h4:first-child { margin-top: 0; }
+.scenes ol, .scenes ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.scenes a {
+  display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 7px;
+  color: var(--ink); text-decoration: none; font-size: 14px;
+}
+.scenes a .n { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-width: 16px; }
+.scenes a:hover { background: var(--surface); }
+.scenes a[aria-current="page"] { background: var(--surface); box-shadow: inset 3px 0 0 var(--signal); font-weight: 600; }
+.scenes .reset { margin-top: 22px; }
+.scenes .note { font-size: 12px; color: var(--muted); margin: 14px 8px 0; }
+
+main { padding: 28px 20px 64px; }
+.app { max-width: 640px; margin: 0 auto; display: grid; gap: 18px; }
+
+/* Progress */
+.progress { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.progress span { height: 5px; border-radius: 3px; background: var(--line); }
+.progress span.done { background: var(--primary); }
+.progress span.now { background: var(--signal); }
+.progress-label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+
+/* Cards and blocks */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 12px; }
+.card.flat { background: var(--sunken); }
+.stack { display: grid; gap: 12px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.lead { font-size: 16px; color: var(--muted); }
+.eyebrow { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Buttons */
+.btn {
+  font: inherit; font-weight: 600; font-size: 15px; padding: 10px 16px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.btn.signal { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--primary); padding-left: 4px; padding-right: 4px; }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+
+/* Pills */
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--sunken); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--good); border-color: transparent; }
+.pill.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.pill.crit { background: var(--crit-bg); color: var(--crit); border-color: transparent; }
+.pill.ki { background: transparent; border-style: dashed; color: var(--ink); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* Forms */
+label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 4px; }
+.field { display: grid; gap: 2px; }
+.hint { font-size: 12.5px; color: var(--muted); }
+input[type="text"], input[type="date"], textarea, select {
+  width: 100%; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px;
+}
+textarea { min-height: 84px; resize: vertical; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; font-size: 15px; margin: 0; cursor: pointer; }
+.check input { margin-top: 4px; width: 17px; height: 17px; accent-color: var(--primary); }
+
+/* Ask box */
+.ask { display: grid; gap: 10px; }
+.ask-input { display: flex; gap: 8px; }
+.ask-input input { font-size: 17px; padding: 12px 14px; }
+
+/* Typenschild */
+.plate {
+  position: relative; background: var(--plate); color: var(--plate-ink); border-radius: 6px;
+  padding: 14px 18px; font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
+  border: 1px solid var(--line);
+}
+.plate::before, .plate::after {
+  content: ""; position: absolute; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--line); top: 8px;
+}
+.plate::before { left: 8px; } .plate::after { right: 8px; }
+.plate dl { display: grid; grid-template-columns: max-content 1fr; gap: 0 14px; margin: 0; }
+.plate dt { color: var(--muted); }
+.plate dd { margin: 0; }
+
+/* Photos */
+.photos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.photo { aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--line); background: var(--sunken); display: grid; place-items: center; text-align: center; font-size: 11.5px; color: var(--muted); padding: 6px; }
+.photo svg { width: 46%; height: auto; color: var(--muted); }
+.photo.add { border-style: dashed; cursor: pointer; }
+.photo.add input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+/* Lists of steps */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.step { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.step .num { width: 30px; height: 30px; border-radius: 50%; background: var(--sunken); border: 1px solid var(--line); display: grid; place-items: center; font-family: var(--font-mono); font-size: 13px; }
+.step .why { font-size: 13.5px; color: var(--muted); }
+.step .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--muted); }
+.correction { border-left: 3px solid var(--signal); background: var(--warn-bg); color: var(--ink); padding: 8px 10px; border-radius: 0 6px 6px 0; font-size: 13.5px; }
+.correction b { color: var(--warn); }
+
+/* Checklist of research */
+.trail { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.trail li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; color: var(--muted); }
+.trail li .ic { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); margin-top: 2px; }
+.trail li.done { color: var(--ink); }
+.trail li.done .ic { border-color: var(--good); background: var(--good); box-shadow: inset 0 0 0 3px var(--surface); }
+.trail li.now .ic { border-color: var(--signal); }
+
+/* Tables */
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th, .tbl td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.tbl td.num { font-variant-numeric: tabular-nums; }
+.scroll-x { overflow-x: auto; }
+
+/* Option cards */
+.option { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.option > * { min-width: 0; }
+.option dl { display: grid; grid-template-columns: 1fr; gap: 0; margin: 0; font-size: 14px; }
+.option dt { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.option dt:first-child { margin-top: 0; }
+.option dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
+.option .btn.ghost { justify-content: flex-start; padding-left: 0; text-align: left; }
+.ask-input .btn { flex-shrink: 0; white-space: nowrap; }
+.option.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+
+/* Timeline */
+.timeline { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); display: grid; gap: 14px; }
+.timeline li { position: relative; padding-left: 12px; }
+.timeline li::before { content: ""; position: absolute; left: -21px; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2px solid var(--muted); }
+.timeline li.ok::before { border-color: var(--good); background: var(--good); }
+.timeline li.wait::before { border-color: var(--signal); }
+.timeline time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+/* Notice */
+.notice { display: grid; grid-template-columns: 6px 1fr; gap: 12px; padding: 14px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+.notice .bar { border-radius: 3px; background: var(--primary); }
+.notice.warn .bar { background: var(--signal); }
+.notice.crit .bar { background: var(--crit); }
+.notice.good .bar { background: var(--good); }
+
+/* Segmented choice inside tables */
+.choice { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.choice button { font: inherit; font-size: 12.5px; padding: 4px 9px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.choice button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+
+/* Rating */
+.scale { display: flex; gap: 6px; flex-wrap: wrap; }
+.scale button { font: inherit; width: 42px; height: 42px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font-weight: 600; }
+.scale button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+
+/* Certificate */
+.cert { border: 2px solid var(--ink); border-radius: var(--radius); padding: 20px; background: var(--surface); display: grid; gap: 10px; position: relative; overflow: hidden; }
+.cert::after { content: ""; position: absolute; right: -40px; top: -40px; width: 120px; height: 120px; background: var(--signal); transform: rotate(45deg); }
+.cert h2 { font-size: 22px; position: relative; z-index: 1; }
+
+/* Quiz */
+.quiz { display: grid; gap: 8px; }
+.quiz button { font: inherit; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.quiz button.right { border-color: var(--good); background: var(--good-bg); }
+.quiz button.wrong { border-color: var(--crit); background: var(--crit-bg); }
+
+/* Toast */
+#toast {
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); max-width: calc(100% - 32px);
+  background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 8px; font-size: 14px;
+  opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 10;
+}
+#toast.show { opacity: 1; }
+
+@media (max-width: 860px) {
+  .topbar { position: static; }
+  .shell { grid-template-columns: 1fr; }
+  .scenes { display: none; }
+  #sceneSelect { display: block; }
+  main { padding: 18px 16px 56px; }
+}
+@media (max-width: 560px) {
+  .grid3, .grid2 { grid-template-columns: 1fr; }
+  .photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ask-input { flex-direction: column; }
+  .topbar { padding: 10px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#17202a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>
+    </span>
+    Wie repariere ich XY?
+  </div>
+  <span class="proto-chip">Klickbarer Prototyp · Beispieldaten</span>
+  <span class="spacer"></span>
+  <nav class="seg" aria-label="Ansicht">
+    <a href="#start" id="roleUser">Nutzer:in</a>
+    <a href="#pruefer" id="roleReviewer">Prüfer:in</a>
+  </nav>
+  <label for="sceneSelect" class="small" style="position:absolute;left:-9999px">Szene wählen</label>
+  <select id="sceneSelect"></select>
+</header>
+
+<div class="shell">
+  <nav class="scenes" id="scenes" aria-label="Szenen des Prototyps"></nav>
+  <main><div class="app" id="app" aria-live="polite"></div></main>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Beispieldaten ---------- */
+  var CASE_ID = "Fall 2611-0142";
+  var PLAN_STEPS = [
+    { t: "Gerät stromlos machen", d: "Gerät ausschalten, Netzstecker ziehen und den Wasserhahn zudrehen.", w: "Pumpe und Steuerung stehen sonst unter Spannung; beim Öffnen tritt Wasser aus.", tools: [], src: "Bedienungsanleitung MW 714 E, Sicherheitshinweise" },
+    { t: "Serviceklappe öffnen", d: "Die Klappe unten rechts an der Front mit einem Flachschraubendreher aufhebeln.", w: "Hinter der Klappe sitzen Flusensieb und Notentleerungsschlauch.", tools: ["Flachschraubendreher"], src: "Bedienungsanleitung MW 714 E, Reinigung der Laugenpumpe" },
+    { t: "Restwasser ablassen", d: "Notentleerungsschlauch herausziehen, Verschluss öffnen und das Wasser in ein flaches Gefäß laufen lassen.", w: "Sonst läuft das ganze Restwasser beim Öffnen des Siebs auf den Boden.", tools: ["Flaches Gefäß"], src: "Bedienungsanleitung MW 714 E, Notentleerung",
+      fix: "Handtücher auslegen. Es können mehrere Liter sein: Gefäß mehrmals leeren, Schlauch dazwischen verschließen." },
+    { t: "Flusensieb reinigen", d: "Sieb langsam gegen den Uhrzeigersinn herausdrehen, Fremdkörper entfernen und das Sieb unter fließendem Wasser spülen.", w: "Ein verstopftes Sieb ist eine häufige Ursache dafür, dass die Maschine nicht abpumpt.", tools: [], src: "iFixit, Anleitung zur Gerätekategorie (verlinkt)" },
+    { t: "Pumpenflügel prüfen", d: "Mit der Taschenlampe in die Sieböffnung leuchten und den Flügel mit dem Finger drehen. Er muss sich frei drehen lassen.", w: "Ein blockierter Flügel deutet auf einen Fremdkörper oder eine defekte Pumpe hin.", tools: ["Taschenlampe"], src: "Bedienungsanleitung MW 714 E, Reinigung der Laugenpumpe", branch: true,
+      fix: "Dreht sich der Flügel auch ohne Fremdkörper nicht, ist die Pumpe defekt. Pumpentausch ist Risikostufe 3: weiter mit Werkstatt." },
+    { t: "Zusammenbauen und testen", d: "Sieb fest eindrehen, Schlauch verschließen, Klappe schließen. Gerät einschalten und das Programm „Abpumpen“ starten; dabei auf Dichtheit achten.", w: "Ein nicht ganz eingedrehtes Sieb ist undicht.", tools: [], src: "Bedienungsanleitung MW 714 E, Programme" }
+  ];
+  var TOOLS = [
+    { id: "t1", name: "Flachschraubendreher", note: "für die Serviceklappe", def: "vorhanden" },
+    { id: "t2", name: "Taschenlampe", note: "Pumpenflügel prüfen", def: "vorhanden" },
+    { id: "t3", name: "Flaches Gefäß und Handtücher", note: "Restwasser", def: "vorhanden" },
+    { id: "t4", name: "Nass-Trockensauger", note: "optional, für viel Restwasser", def: "leihen", rent: "4,00 € pro Tag" }
+  ];
+  var SOURCES = [
+    { name: "Bedienungsanleitung MW 714 E (Hersteller)", rights: "urheberrechtlich geschützt", use: "Deep-Link" },
+    { name: "iFixit: Anleitung zur Gerätekategorie", rights: "CC BY-NC-SA 3.0", use: "über API gefunden, verlinkt" },
+    { name: "wikiHow: Waschmaschine pumpt nicht ab", rights: "nicht kommerziell bzw. proprietär", use: "nur Link" },
+    { name: "Video: Flusensieb reinigen", rights: "je Urheber", use: "nur Link" }
+  ];
+  var CATALOG = [
+    { id: "fahrrad", title: "Fahrradschlauch wechseln", cat: "Fahrrad", level: 1, min: 30, cases: 64,
+      steps: [["Rad ausbauen", "Bremse lösen, Schnellspanner öffnen, Rad herausnehmen.", "Ohne gelöste Bremse passt der Reifen nicht durch."], ["Schlauch tauschen", "Reifen mit Heber abziehen, Loch suchen, neuen Schlauch leicht aufpumpen und einlegen.", "Leicht aufgepumpt verdreht er sich nicht."], ["Montieren und prüfen", "Reifen aufziehen, auf Nenndruck pumpen, Rad einbauen, Bremse schließen.", "Der Nenndruck steht auf der Reifenflanke."]],
+      quiz: [["Wo steht der richtige Reifendruck?", ["Auf der Reifenflanke", "Am Ventil", "Auf dem Rahmen"], 0], ["Warum wird der neue Schlauch vor dem Einlegen leicht aufgepumpt?", ["Damit er sich nicht verdreht", "Damit er schneller trocknet", "Damit das Ventil hält"], 0]] },
+    { id: "flusensieb", title: "Flusensieb der Waschmaschine reinigen", cat: "Haushaltsgroßgerät", level: 2, min: 45, cases: 23,
+      steps: [["Stromlos machen", "Netzstecker ziehen, Wasserhahn zudrehen.", "Pumpe und Steuerung stehen sonst unter Spannung."], ["Restwasser ablassen", "Über den Notentleerungsschlauch in ein flaches Gefäß.", "Die Öffnung liegt knapp über dem Boden."], ["Sieb reinigen", "Gegen den Uhrzeigersinn herausdrehen, spülen, Flügel prüfen.", "Ein verstopftes Sieb ist eine häufige Ursache für Abpumpfehler."], ["Testen", "Sieb fest eindrehen, Programm „Abpumpen“ starten.", "Undichtigkeit zeigt sich sofort."]],
+      quiz: [["Was kommt vor dem Öffnen der Serviceklappe?", ["Netzstecker ziehen", "Schleudergang starten", "Klappe mit Wasser spülen"], 0], ["Warum ein flaches Gefäß?", ["Die Öffnung liegt knapp über dem Boden", "Es fließt schneller ab", "Weil das Sieb sonst bricht"], 0]] },
+    { id: "wasserhahn", title: "Tropfenden Wasserhahn abdichten", cat: "Sanitär", level: 2, min: 40, cases: 31,
+      steps: [["Wasser absperren", "Eckventil unter dem Waschbecken zudrehen, Hahn öffnen bis kein Wasser mehr kommt.", "Sonst steht die Leitung unter Druck."], ["Oberteil ausbauen", "Griff abnehmen, Oberteil mit Gabelschlüssel lösen.", "Die Dichtung sitzt am Oberteil."], ["Dichtung tauschen", "Alte Dichtung mitnehmen und gleiche Größe einsetzen.", "Falsche Größe dichtet nicht."]],
+      quiz: [["Was drehst du zuerst zu?", ["Das Eckventil", "Den Hahn selbst", "Den Haupthahn der Heizung"], 0], ["Wie findest du die richtige Dichtung?", ["Alte Dichtung mitnehmen und vergleichen", "Die größte nehmen", "Irgendeine aus Gummi"], 0]] },
+    { id: "steckdose", title: "Steckdose tauschen", cat: "Elektroinstallation", level: 3, min: 0, cases: 9, learnOnly: true,
+      steps: [["Verstehen, was passiert", "Eine Steckdose ist Teil der fixen Installation.", "Fehler führen zu Brand oder Stromschlag."], ["Wer das macht", "Ausführung durch eine befugte Fachkraft.", "Fixe Installation ist im Konzept immer Risikostufe 3."], ["Was du vorbereiten kannst", "Fehlerbild beschreiben, Fotos machen, Sicherung benennen.", "Spart Zeit beim Termin."]],
+      quiz: [["Welche Risikostufe hat die fixe Elektroinstallation?", ["Stufe 3", "Stufe 2", "Stufe 1"], 0], ["Was kannst du selbst vorbereiten?", ["Fehlerbild und Fotos", "Den Anschluss lösen", "Die Leitung kürzen"], 0]] }
+  ];
+  var FREE_STEPS = [
+    ["Leitungen orten", "Mit einem Leitungssucher prüfen, ob an den Bohrstellen Strom- oder Wasserleitungen verlaufen.", "Gipskartonwände führen oft Leitungen senkrecht über und unter Steckdosen.", "Leitungssucher (leihen)"],
+    ["Tragkraft klären", "Gewicht von Regal und Inhalt schätzen, passende Hohlraumdübel wählen.", "Gipskarton trägt nur mit Hohlraumdübeln oder am Ständerwerk.", "Hohlraumdübel"],
+    ["Anzeichnen", "Bohrlöcher mit Wasserwaage anzeichnen.", "Schiefe Regale belasten die Dübel ungleich.", "Wasserwaage"],
+    ["Bohren", "Ohne Schlagfunktion bohren, Dübel setzen.", "Schlag zerstört die Gipsplatte um das Loch.", "Akkubohrschrauber (leihen)"],
+    ["Montieren und belasten", "Regal anschrauben, schrittweise belasten.", "So zeigt sich ein schlecht sitzender Dübel früh.", ""]
+  ];
+
+  var SCENES = [
+    { id: "start", label: "Start", group: "Ablauf", flow: 0 },
+    { id: "fall", label: "Fall beschreiben", group: "Ablauf", flow: 1 },
+    { id: "recherche", label: "KI-Recherche", group: "Ablauf", flow: 2 },
+    { id: "plan", label: "Plan", group: "Ablauf", flow: 3 },
+    { id: "pruefung", label: "Crowd-Prüfung", group: "Ablauf", flow: 4 },
+    { id: "rechte", label: "Rechte prüfen", group: "Ablauf", flow: 5 },
+    { id: "entscheidung", label: "Entscheidung", group: "Ablauf", flow: 6 },
+    { id: "selbst", label: "Selbst: Werkzeug", group: "Ausführung", flow: 7 },
+    { id: "anleitung", label: "Selbst: Anleitung", group: "Ausführung", flow: 7 },
+    { id: "crowd", label: "Crowd buchen", group: "Ausführung", flow: 7 },
+    { id: "werkstatt", label: "Werkstatt anfragen", group: "Ausführung", flow: 7 },
+    { id: "rueckmeldung", label: "Rückmeldung", group: "Abschluss", flow: 8 },
+    { id: "abschluss", label: "Lernnachweis", group: "Abschluss", flow: 9 },
+    { id: "katalog", label: "Katalog", group: "Lernmodi" },
+    { id: "lernpfad", label: "Lernpfad", group: "Lernmodi" },
+    { id: "frei", label: "Freier Use Case", group: "Lernmodi" },
+    { id: "pruefer", label: "Prüfmaske", group: "Crowd-Seite" }
+  ];
+  var FLOW_LABELS = ["Fall", "Recherche", "Plan", "Prüfung", "Rechte", "Entscheidung", "Ausführung", "Rückmeldung"];
+
+  /* ---------- Zustand ---------- */
+  function freshState() {
+    return {
+      question: "Waschmaschine pumpt nicht ab",
+      kaufdatum: "2025-03-14",
+      fehler: "Nach dem Waschgang bleibt Wasser in der Trommel. Das Display zeigt F21. Die Pumpe brummt kurz, dann bricht das Programm ab.",
+      planStatus: "entwurf", // entwurf | pruefung | freigegeben
+      reviewDone: false,
+      option: null,
+      video: false,
+      tools: TOOLS.reduce(function (o, t) { o[t.id] = t.def; return o; }, {}),
+      rentRequested: false,
+      safety: { a: false, b: false, c: false },
+      stepIdx: -1,
+      pumpOk: null,
+      helper: null, slot: null, booked: false,
+      workshop: null, workshopSent: false,
+      result: "erfolgreich", rating: 4, share: true,
+      catalogFilter: 0, lesson: "flusensieb", answers: {},
+      freeText: "Ich will ein Regal an eine Gipskartonwand im Wohnzimmer hängen.", freeDone: false, freeReview: false,
+      reviewerChecks: [true, true, false, true, true], reviewerSaved: null,
+      recherche: 0
+    };
+  }
+  var S = freshState();
+  var timer = null;
+
+  /* ---------- Hilfen ---------- */
+  function $(sel) { return document.querySelector(sel); }
+  function fmtDate(iso) { var p = iso.split("-"); return p[2] + "." + p[1] + "." + p[0]; }
+  function addYears(iso, n) { var p = iso.split("-"); return (Number(p[0]) + n) + "-" + p[1] + "-" + p[2]; }
+  function todayIso() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function toast(msg) { var t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove("show"); }, 2800); }
+  function levelPill(l, learnOnly) {
+    var cls = l === 1 ? "good" : l === 2 ? "warn" : "crit";
+    var txt = l === 1 ? "Risikostufe 1 · niedrig" : l === 2 ? "Risikostufe 2 · mittel" : "Risikostufe 3 · hoch";
+    return '<span class="pill ' + cls + '"><span class="dot"></span>' + txt + (learnOnly ? " · nur Lernen" : "") + "</span>";
+  }
+  function statusPill() {
+    if (S.planStatus === "freigegeben") return '<span class="pill good"><span class="dot"></span>Von der Crowd geprüft</span>';
+    if (S.planStatus === "pruefung") return '<span class="pill warn"><span class="dot"></span>In Crowd-Prüfung</span>';
+    return '<span class="pill ki">KI-Entwurf</span>';
+  }
+  function reduced() { return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  var ICON = {
+    plate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M6 10h8M6 13h12M6 16h6"/></svg>',
+    display: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="10" rx="1.5"/><path d="M8 19h8M12 15v4"/><path d="M8 8.5v3M10 8.5h-2M8 10h1.5M12 8.5h2v3M12 10h2"/></svg>',
+    filter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 4v5M12 15v5M4 12h5M15 12h5"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg>'
+  };
+
+  /* ---------- Rahmen ---------- */
+  function buildNav() {
+    var groups = {};
+    SCENES.forEach(function (s) { (groups[s.group] = groups[s.group] || []).push(s); });
+    var html = "";
+    Object.keys(groups).forEach(function (g) {
+      html += "<h4>" + g + "</h4><ol>";
+      groups[g].forEach(function (s) {
+        var n = s.flow >= 1 && s.flow <= 8 ? String(s.flow) : "·";
+        html += '<li><a href="#' + s.id + '" data-scene="' + s.id + '"><span class="n">' + n + "</span>" + s.label + "</a></li>";
+      });
+      html += "</ol>";
+    });
+    html += '<div class="reset"><button class="btn" type="button" data-act="reset">Prototyp zurücksetzen</button></div>';
+    html += '<p class="note">Alle Daten sind Beispieldaten. Buchungen, Leihe und KI-Recherche werden simuliert.</p>';
+    $("#scenes").innerHTML = html;
+    var sel = $("#sceneSelect");
+    sel.innerHTML = SCENES.map(function (s) { return '<option value="' + s.id + '">' + s.group + ": " + s.label + "</option>"; }).join("");
+    sel.addEventListener("change", function () { location.hash = sel.value; });
+  }
+
+  function progress(flowIdx) {
+    if (flowIdx == null || flowIdx < 1 || flowIdx > 8) return "";
+    var bars = "";
+    for (var i = 1; i <= 8; i++) bars += '<span class="' + (i < flowIdx ? "done" : i === flowIdx ? "now" : "") + '"></span>';
+    return '<div class="stack" style="gap:6px"><div class="progress" aria-hidden="true">' + bars + '</div><div class="progress-label"><span>Schritt ' + flowIdx + " von 8 · " + FLOW_LABELS[flowIdx - 1] + "</span><span>" + CASE_ID + "</span></div></div>";
+  }
+
+  /* ---------- Szenen ---------- */
+  var R = {};
+
+  R.start = function () {
+    return '' +
+      '<div class="stack" style="gap:8px"><span class="eyebrow">Lernen am eigenen Fall</span><h1>Wie repariere ich …?</h1>' +
+      '<p class="lead">Beschreibe, was kaputt ist. Du bekommst einen Plan mit Quellen, den die Crowd geprüft hat, und entscheidest dann, wer repariert.</p></div>' +
+      '<form class="card ask" id="askForm"><label for="q">Was ist kaputt oder was hast du vor?</label>' +
+      '<div class="ask-input"><input type="text" id="q" value="' + esc(S.question) + '" autocomplete="off"><button class="btn primary" type="submit">Fall anlegen</button></div>' +
+      '<p class="hint">Mit Typenschild und Fotos wird der Plan objektspezifisch.</p></form>' +
+      '<h2>Oder anders lernen</h2>' +
+      '<div class="grid3">' +
+        '<a class="card option" href="#fall" style="text-decoration:none;color:inherit"><h3>Realer Fall</h3><p class="small muted">Kaputtes Gerät mit Fotos und Typenschild. Crowd-Prüfung ist Pflicht.</p><span class="btn ghost">Fall anlegen →</span></a>' +
+        '<a class="card option" href="#frei" style="text-decoration:none;color:inherit"><h3>Freier Use Case</h3><p class="small muted">Beliebiges Vorhaben, auch hypothetisch. Plan ohne Typenschild.</p><span class="btn ghost">Vorhaben beschreiben →</span></a>' +
+        '<a class="card option" href="#katalog" style="text-decoration:none;color:inherit"><h3>Vorgegebene Use Cases</h3><p class="small muted">Kuratierte Lernpfade aus realen Fällen, mit Prüffragen.</p><span class="btn ghost">Katalog öffnen →</span></a>' +
+      "</div>" +
+      '<div class="notice"><span class="bar"></span><div class="stack" style="gap:4px"><b>So läuft ein Fall</b><p class="small muted">Fall beschreiben → KI-Recherche und Handbücher → Aufgabenliste → Crowd-Prüfung → Rechte prüfen → Entscheidung: selbst, Crowd oder Werkstatt → Rückmeldung.</p></div></div>';
+  };
+
+  R.fall = function () {
+    return progress(1) +
+      '<div class="stack" style="gap:6px"><h1>Fall beschreiben</h1><p class="lead">Je genauer das Typenschild, desto besser passt der Plan zu deinem Gerät.</p></div>' +
+      '<form class="card" id="fallForm">' +
+        '<div class="grid2"><div class="field"><label for="geraet">Gerät</label><input type="text" id="geraet" value="Waschmaschine"></div>' +
+        '<div class="field"><label for="gruppe">Produktgruppe</label><select id="gruppe"><option selected>Haushaltsgroßgerät · Waschmaschine</option><option>Kleingerät</option><option>Fahrrad</option><option>Möbel</option><option>Sanitär</option></select></div></div>' +
+        '<div class="field"><div class="row" style="justify-content:space-between"><label style="margin:0">Typenschild</label><span class="pill good">aus Foto gelesen</span></div>' +
+          '<div class="plate"><dl><dt>Hersteller</dt><dd>Musterwerk (fiktiv)</dd><dt>Modell</dt><dd>MW 714 E</dd><dt>Typ-Nr.</dt><dd>MW714-EU7</dd><dt>Serien-Nr.</dt><dd>24 0815 3321</dd><dt>Anschluss</dt><dd>230 V ~ 50 Hz · 2300 W · IPX4</dd></dl></div></div>' +
+        '<div class="field"><label>Fotos</label><div class="photos">' +
+          '<div class="photo">' + ICON.plate + "<span>Typenschild</span></div>" +
+          '<div class="photo">' + ICON.display + "<span>Anzeige F21</span></div>" +
+          '<div class="photo">' + ICON.filter + "<span>Serviceklappe</span></div>" +
+          '<label class="photo add" for="fotoUpload" style="position:relative;margin:0;font-weight:400">' + ICON.plus + '<span>Foto hinzufügen</span><input type="file" id="fotoUpload" accept="image/*"></label>' +
+        "</div></div>" +
+        '<div class="field"><label for="fehler">Fehlerbild</label><textarea id="fehler">' + esc(S.fehler) + "</textarea></div>" +
+        '<div class="grid2"><div class="field"><label for="kauf">Kaufdatum</label><input type="date" id="kauf" value="' + S.kaufdatum + '"><span class="hint">Für Gewährleistung und Herstellerpflicht.</span></div>' +
+        '<div class="field"><label for="modus">Lernmodus</label><select id="modus"><option selected>Realer Fall</option><option>Freier Use Case</option></select></div></div>' +
+        '<div class="actions"><a class="btn ghost" href="#start">← Zurück</a><button class="btn primary" type="submit">KI-Recherche starten</button></div>' +
+      "</form>";
+  };
+
+  var TRAIL = [
+    "Typenschild gelesen: Musterwerk MW 714 E",
+    "Bedienungsanleitung beim Hersteller gefunden: Abschnitt „Reinigung der Laugenpumpe“",
+    "Fehlercode F21 zugeordnet: Abpumpen dauert zu lange",
+    "iFixit: Anleitung zur Gerätekategorie über die API gefunden",
+    "wikiHow und Videos: Treffer verlinkt, nicht übernommen",
+    "Aufgabenliste mit 6 Schritten erstellt, Risikostufe 2"
+  ];
+  R.recherche = function () {
+    var items = TRAIL.map(function (t, i) {
+      var cls = i < S.recherche ? "done" : i === S.recherche ? "now" : "";
+      return '<li class="' + cls + '"><span class="ic"></span><span>' + t + "</span></li>";
+    }).join("");
+    var finished = S.recherche >= TRAIL.length;
+    var src = SOURCES.map(function (s) { return "<tr><td>" + s.name + "</td><td>" + s.rights + "</td><td>" + s.use + "</td></tr>"; }).join("");
+    return progress(2) +
+      '<div class="stack" style="gap:6px"><h1>KI-Recherche</h1><p class="lead">Die KI sucht Handbuch, Fehlercode und Anleitungen. Jede Aussage im Plan bekommt ihre Quelle.</p></div>' +
+      '<div class="card"><ul class="trail">' + items + "</ul></div>" +
+      '<div class="card"><h2>Quellen</h2><p class="small muted">Verlinken statt übernehmen: offene Reparaturquellen sind nicht für kommerzielle Nutzung freigegeben.</p>' +
+      '<div class="scroll-x"><table class="tbl"><thead><tr><th>Quelle</th><th>Rechte</th><th>Nutzung</th></tr></thead><tbody>' + src + "</tbody></table></div></div>" +
+      '<div class="actions"><a class="btn ghost" href="#fall">← Fall bearbeiten</a><button class="btn primary" type="button" data-go="plan"' + (finished ? "" : " disabled") + ">Plan ansehen</button></div>";
+  };
+
+  function stepList(withFix) {
+    return '<ol class="steps">' + PLAN_STEPS.map(function (s, i) {
+      var tools = s.tools.map(function (t) { return '<span class="pill">' + t + "</span>"; }).join("");
+      var fix = withFix && s.fix ? '<p class="correction"><b>Crowd-Korrektur:</b> ' + s.fix + "</p>" : "";
+      return '<li class="step"><span class="num">' + (i + 1) + '</span><div class="stack" style="gap:6px"><h3>' + s.t + "</h3><p>" + s.d + '</p><p class="why"><b>Warum:</b> ' + s.w + "</p>" + fix +
+        '<div class="meta">' + tools + "<span>Quelle: " + s.src + "</span></div></div></li>";
+    }).join("") + "</ol>";
+  }
+
+  R.plan = function () {
+    var approved = S.planStatus === "freigegeben";
+    var cta = approved ? '<button class="btn primary" type="button" data-go="rechte">Weiter: Rechte prüfen</button>'
+      : S.planStatus === "pruefung" ? '<button class="btn primary" type="button" data-go="pruefung">Prüfstatus ansehen</button>'
+      : '<button class="btn primary" type="button" data-act="submitReview">Zur Crowd-Prüfung senden</button>';
+    return progress(3) +
+      '<div class="stack" style="gap:8px"><div class="row">' + statusPill() + levelPill(2) + '</div><h1>Abpumpfehler F21 beheben</h1>' +
+      '<p class="muted small">Musterwerk MW 714 E · 6 Schritte · ca. 45 Minuten · keine Ersatzteile</p></div>' +
+      (approved ? "" : '<div class="notice warn"><span class="bar"></span><p class="small">Dieser Plan ist ein KI-Entwurf. Ausgeführt wird erst nach der Freigabe durch die Crowd.</p></div>') +
+      stepList(approved) +
+      '<div class="card flat"><h3>Werkzeug</h3><div class="row">' + TOOLS.map(function (t) { return '<span class="pill">' + t.name + "</span>"; }).join("") + "</div></div>" +
+      '<div class="actions"><a class="btn ghost" href="#recherche">← Quellen</a>' + cta + "</div>";
+  };
+
+  R.pruefung = function () {
+    var done = S.reviewDone;
+    var tl = '<ol class="timeline">' +
+      '<li class="ok"><time>18:41</time><p>Plan an die Crowd gesendet. Risikostufe 2: zwei unabhängige Prüfungen, davon eine mit Fachnachweis.</p></li>' +
+      (done
+        ? '<li class="ok"><time>18:52</time><p><b>Prüfer:in A</b> · freigegeben mit Korrektur<br><span class="small muted">„Bei Schritt 3 fehlen Handtücher, da kommt mehr Wasser als man denkt.“</span></p></li>' +
+          '<li class="ok"><time>19:05</time><p><b>Prüfer:in B</b> · Fachnachweis: Lehrabschluss Elektrotechnik · freigegeben mit Korrektur<br><span class="small muted">„Schritt 5 braucht einen Ausstieg, falls die Pumpe selbst defekt ist.“</span></p></li>'
+        : '<li class="wait"><time>läuft</time><p>Wartet auf Prüfer:in A und Prüfer:in B.</p></li>') +
+      "</ol>";
+    var result = done
+      ? '<div class="notice good"><span class="bar"></span><div class="stack" style="gap:6px"><b>Freigegeben mit Korrekturen</b><ul class="small" style="margin:0;padding-left:18px"><li>Schritt 3 ergänzt: Handtücher, Gefäß mehrmals leeren.</li><li>Schritt 5 ergänzt: Pumpe defekt → Risikostufe 3, weiter mit Werkstatt.</li></ul></div></div>'
+      : '<div class="row"><button class="btn signal" type="button" data-act="simulateReview">Prüfergebnis simulieren</button><a class="btn ghost" href="#pruefer">Als Prüfer:in ansehen →</a></div>';
+    return progress(4) +
+      '<div class="stack" style="gap:6px"><h1>Crowd-Prüfung</h1><p class="lead">Menschen mit Erfahrung prüfen Quelle, Reihenfolge, Werkzeug, Sicherheitshinweise und Aufwand.</p></div>' +
+      '<div class="card">' + tl + "</div>" + result +
+      '<div class="actions"><a class="btn ghost" href="#plan">' + (done ? "Geprüften Plan ansehen" : "← Plan") + '</a><button class="btn primary" type="button" data-go="rechte"' + (done ? "" : " disabled") + ">Weiter: Rechte prüfen</button></div>";
+  };
+
+  R.rechte = function () {
+    var end = addYears(S.kaufdatum, 2);
+    var inWarranty = end >= todayIso();
+    var warranty = inWarranty
+      ? '<div class="notice warn"><span class="bar"></span><div class="stack" style="gap:6px"><b>Gewährleistung läuft bis ' + fmtDate(end) + '</b><p class="small">Kaufdatum ' + fmtDate(S.kaufdatum) + '. Wende dich zuerst an den Verkäufer. Eine Reparatur als Gewährleistungsbehelf verlängert die Gewährleistung einmalig um ein Jahr. Ein eigener Eingriff kann die Durchsetzung erschweren.</p></div></div>'
+      : '<div class="notice"><span class="bar"></span><div class="stack" style="gap:6px"><b>Gewährleistung abgelaufen</b><p class="small">Kaufdatum ' + fmtDate(S.kaufdatum) + ", Gewährleistung endete am " + fmtDate(end) + ".</p></div></div>";
+    return progress(5) +
+      '<div class="stack" style="gap:6px"><h1>Rechte zuerst</h1><p class="lead">Bevor du entscheidest: Vielleicht muss jemand anderer reparieren, und zwar kostenlos oder verpflichtend.</p></div>' +
+      warranty +
+      '<div class="notice"><span class="bar"></span><div class="stack" style="gap:6px"><b>Herstellerpflicht zur Reparatur</b><p class="small">Waschmaschinen gehören zu den Produktgruppen mit EU-Anforderungen an die Reparierbarkeit. Seit 01.10.2026 muss der Hersteller sie auf Verlangen reparieren, auch außerhalb der Gewährleistung.</p></div></div>' +
+      '<p class="hint">Hinweis im Prototyp, keine Rechtsberatung.</p>' +
+      '<div class="actions"><button class="btn" type="button" data-act="contactSeller">Verkäufer kontaktieren</button><button class="btn primary" type="button" data-go="entscheidung">Optionen vergleichen</button></div>';
+  };
+
+  var OPTIONS = [
+    { id: "selbst", title: "Selbst reparieren", go: "selbst", rows: [["Zeit", "ca. 45 Min, sofort"], ["Kosten", "0–8 € (optionale Leihe)"], ["Risiko", "mittel, Sicherheitscheck Pflicht"], ["Lerngewinn", "hoch"]] },
+    { id: "crowd", title: "Crowd repariert", go: "crowd", rows: [["Zeit", "Termin in 1–2 Tagen"], ["Kosten", "30–45 €"], ["Risiko", "niedrig"], ["Lerngewinn", "mittel, du bist dabei"]] },
+    { id: "werkstatt", title: "Werkstatt", go: "werkstatt", rows: [["Zeit", "Termin in 3–5 Tagen"], ["Kosten", "ab 79 € plus Teile"], ["Risiko", "niedrig"], ["Lerngewinn", "gering"]] }
+  ];
+  R.entscheidung = function () {
+    var cards = OPTIONS.map(function (o) {
+      var rows = o.rows.map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>"; }).join("");
+      var extra = o.id === "selbst" ? '<label class="check small" for="videoOpt"><input type="checkbox" id="videoOpt" ' + (S.video ? "checked" : "") + '> Mit Video-Begleitung durch die Crowd</label>' : "";
+      return '<div class="card option' + (S.option === o.id ? " selected" : "") + '"><h3>' + o.title + "</h3><dl>" + rows + "</dl>" + extra +
+        '<button class="btn ' + (S.option === o.id ? "primary" : "") + '" type="button" data-act="choose" data-opt="' + o.id + '">Wählen</button></div>';
+    }).join("");
+    return progress(6) +
+      '<div class="stack" style="gap:6px"><h1>Wer repariert?</h1><p class="lead">Du entscheidest. Werte sind Beispiele aus der Nachbarplattform.</p></div>' +
+      '<div class="grid3">' + cards + "</div>" +
+      '<p class="hint">Prüfer:innen dieses Falls können ihn nicht als Ausführende übernehmen.</p>' +
+      '<div class="actions"><a class="btn ghost" href="#rechte">← Rechte</a></div>';
+  };
+
+  R.selbst = function () {
+    var rows = TOOLS.map(function (t) {
+      var v = S.tools[t.id];
+      var btns = ["vorhanden", "leihen", "kaufen"].map(function (k) { return '<button type="button" data-act="tool" data-tool="' + t.id + '" data-val="' + k + '" aria-pressed="' + (v === k) + '">' + k + "</button>"; }).join("");
+      return "<tr><td><b>" + t.name + '</b><br><span class="small muted">' + t.note + '</span></td><td><div class="choice" role="group" aria-label="' + t.name + '">' + btns + "</div>" +
+        (v === "leihen" ? '<div class="small muted" style="margin-top:4px">' + (t.rent || "Preis auf Anfrage") + "</div>" : "") + "</td></tr>";
+    }).join("");
+    var rentCount = TOOLS.filter(function (t) { return S.tools[t.id] === "leihen"; }).length;
+    var rentBox = rentCount
+      ? '<div class="card flat"><div class="row" style="justify-content:space-between"><h3>Leihe über die Nachbarplattform</h3>' + (S.rentRequested ? '<span class="pill good">angefragt</span>' : "") + '</div>' +
+        '<p class="small">Abholung Sa 10:00, Rückgabe So 18:00 · ' + rentCount + " Werkzeug" + (rentCount > 1 ? "e" : "") + '</p>' +
+        '<div><button class="btn" type="button" data-act="rent"' + (S.rentRequested ? " disabled" : "") + ">Leihe anfragen</button></div></div>"
+      : "";
+    return progress(7) +
+      '<div class="stack" style="gap:6px"><h1>Werkzeug klären</h1><p class="lead">Aus der Aufgabenliste: Was hast du, was leihst du, was kaufst du?</p></div>' +
+      '<div class="card"><div class="scroll-x"><table class="tbl"><thead><tr><th>Werkzeug</th><th>Status</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>" +
+      rentBox +
+      (S.video ? '<div class="notice"><span class="bar"></span><p class="small">Video-Begleitung gewählt: Eine Person aus der Crowd schaut beim Sicherheitscheck und bei Schritt 5 zu.</p></div>' : "") +
+      '<div class="actions"><a class="btn ghost" href="#entscheidung">← Optionen</a><button class="btn primary" type="button" data-go="anleitung">Anleitung starten</button></div>';
+  };
+
+  R.anleitung = function () {
+    if (S.stepIdx < 0) {
+      var all = S.safety.a && S.safety.b && S.safety.c;
+      return progress(7) +
+        '<div class="stack" style="gap:6px"><span class="eyebrow">Vor dem ersten Schritt</span><h1>Sicherheitscheck</h1><p class="lead">Risikostufe 2: Ohne diese drei Punkte geht es nicht weiter.</p></div>' +
+        '<form class="card" id="safetyForm">' +
+          '<label class="check" for="sa"><input type="checkbox" id="sa" data-safety="a" ' + (S.safety.a ? "checked" : "") + "> Netzstecker ist gezogen.</label>" +
+          '<label class="check" for="sb"><input type="checkbox" id="sb" data-safety="b" ' + (S.safety.b ? "checked" : "") + "> Wasserhahn ist zugedreht.</label>" +
+          '<label class="check" for="sc"><input type="checkbox" id="sc" data-safety="c" ' + (S.safety.c ? "checked" : "") + "> Flaches Gefäß und Handtücher liegen bereit.</label>" +
+        "</form>" +
+        '<div class="actions"><a class="btn ghost" href="#selbst">← Werkzeug</a><button class="btn primary" type="button" data-act="startSteps"' + (all ? "" : " disabled") + ">Schritt 1 beginnen</button></div>";
+    }
+    var i = S.stepIdx, s = PLAN_STEPS[i], last = i === PLAN_STEPS.length - 1;
+    var branch = "";
+    if (s.branch) {
+      branch = '<div class="card flat"><b>Lässt sich der Flügel frei drehen?</b><div class="row">' +
+        '<button class="btn ' + (S.pumpOk === true ? "primary" : "") + '" type="button" data-act="pump" data-val="ja">Ja</button>' +
+        '<button class="btn ' + (S.pumpOk === false ? "primary" : "") + '" type="button" data-act="pump" data-val="nein">Nein, auch ohne Fremdkörper nicht</button></div>' +
+        (S.pumpOk === false ? '<div class="notice crit"><span class="bar"></span><div class="stack" style="gap:6px"><b>Pumpe vermutlich defekt</b><p class="small">Der Pumpentausch hat Risikostufe 3. Gerät wieder zusammenbauen und die Fallakte an eine Werkstatt geben.</p><div><button class="btn" type="button" data-go="werkstatt">Weiter mit Werkstatt</button></div></div></div>' : "") +
+        "</div>";
+    }
+    var canNext = !s.branch || S.pumpOk === true;
+    var tools = s.tools.map(function (t) { return '<span class="pill">' + t + "</span>"; }).join("");
+    return progress(7) +
+      '<div class="stack" style="gap:6px"><span class="eyebrow">Schritt ' + (i + 1) + " von " + PLAN_STEPS.length + "</span><h1>" + s.t + "</h1></div>" +
+      '<div class="card"><p style="font-size:16px">' + s.d + '</p><p class="small muted"><b>Warum:</b> ' + s.w + "</p>" +
+      (s.fix ? '<p class="correction"><b>Crowd-Korrektur:</b> ' + s.fix + "</p>" : "") +
+      '<div class="row">' + tools + '<span class="small muted">Quelle: ' + s.src + "</span></div></div>" +
+      branch +
+      '<div class="row"><label class="btn" for="stepFoto" style="margin:0;font-weight:600">Foto dokumentieren<input type="file" id="stepFoto" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0"></label><button class="btn" type="button" data-act="help">Hilfe anfragen</button></div>' +
+      '<div class="actions"><button class="btn ghost" type="button" data-act="prevStep">← ' + (i === 0 ? "Sicherheitscheck" : "Schritt " + i) + "</button>" +
+      (last ? '<button class="btn primary" type="button" data-go="rueckmeldung">Reparatur abschließen</button>'
+            : '<button class="btn primary" type="button" data-act="nextStep"' + (canNext ? "" : " disabled") + ">Schritt " + (i + 2) + " →</button>") + "</div>";
+  };
+
+  var HELPERS = [
+    { id: "h1", name: "Helfer:in M.", dist: "1,2 km", n: 41, rate: "35 € Pauschale", tag: "Gewerbeberechtigung geprüft" },
+    { id: "h2", name: "Helfer:in J.", dist: "2,8 km", n: 12, rate: "unentgeltlich", tag: "Nachbarschaftshilfe" },
+    { id: "h3", name: "Helfer:in S.", dist: "3,5 km", n: 27, rate: "40 € Pauschale", tag: "Gewerbeberechtigung geprüft" }
+  ];
+  var SLOTS = ["Sa 10:00", "Sa 14:00", "Mo 17:30"];
+  R.crowd = function () {
+    if (S.booked) {
+      var h = HELPERS.filter(function (x) { return x.id === S.helper; })[0];
+      return progress(7) +
+        '<div class="stack" style="gap:6px"><h1>Gebucht</h1><p class="lead">' + h.name + " kommt am " + S.slot + ".</p></div>" +
+        '<div class="card"><ol class="timeline"><li class="ok"><time>jetzt</time><p>Buchung über die Nachbarplattform bestätigt (simuliert)</p></li><li class="ok"><time>jetzt</time><p>Fallakte übergeben: Plan, Fotos, Typenschild, Crowd-Korrekturen</p></li><li class="wait"><time>' + S.slot + "</time><p>Reparatur vor Ort, du bist dabei</p></li></ol></div>" +
+        '<div class="actions"><a class="btn ghost" href="#entscheidung">← Optionen</a><button class="btn primary" type="button" data-go="rueckmeldung">Nach dem Termin: Rückmeldung geben</button></div>';
+    }
+    var list = HELPERS.map(function (h) {
+      return '<div class="card option' + (S.helper === h.id ? " selected" : "") + '"><div class="row" style="justify-content:space-between"><h3>' + h.name + '</h3><span class="pill' + (h.tag.indexOf("Gewerbe") === 0 ? " good" : "") + '">' + h.tag + "</span></div>" +
+        '<p class="small muted">' + h.dist + " · " + h.n + " erfolgreiche Reparaturen · " + h.rate + "</p>" +
+        '<div><button class="btn ' + (S.helper === h.id ? "primary" : "") + '" type="button" data-act="helper" data-id="' + h.id + '">Auswählen</button></div></div>';
+    }).join("");
+    var slots = S.helper ? '<div class="card"><h3>Termin</h3><div class="row">' + SLOTS.map(function (s) { return '<button class="btn ' + (S.slot === s ? "primary" : "") + '" type="button" data-act="slot" data-val="' + s + '">' + s + "</button>"; }).join("") + "</div></div>" : "";
+    return progress(7) +
+      '<div class="stack" style="gap:6px"><h1>Jemand aus der Crowd</h1><p class="lead">Gebucht wird über die Nachbarplattform. Die Fallakte geht automatisch mit.</p></div>' +
+      list + slots +
+      '<p class="hint">Bezahlte, regelmäßige Einsätze nur mit geprüfter Gewerbeberechtigung. Prüfer:innen dieses Falls sind ausgeschlossen.</p>' +
+      '<div class="actions"><a class="btn ghost" href="#entscheidung">← Optionen</a><button class="btn primary" type="button" data-act="book"' + (S.helper && S.slot ? "" : " disabled") + ">Über Nachbarplattform buchen</button></div>";
+  };
+
+  var WORKSHOPS = [
+    { id: "w1", name: "Reparaturbetrieb A", dist: "3,4 km", note: "Partner der Nachbarplattform · Kostenvoranschlag in 24 h" },
+    { id: "w2", name: "Reparaturbetrieb B", dist: "5,1 km", note: "Partner der Nachbarplattform · Abholservice" }
+  ];
+  R.werkstatt = function () {
+    if (S.workshopSent) {
+      var w = WORKSHOPS.filter(function (x) { return x.id === S.workshop; })[0];
+      return progress(7) +
+        '<div class="stack" style="gap:6px"><h1>Anfrage gesendet</h1><p class="lead">' + w.name + " hat die Fallakte erhalten.</p></div>" +
+        '<div class="card"><ol class="timeline"><li class="ok"><time>jetzt</time><p>Fallakte übermittelt: Typenschild, Fotos, Fehlerbild, geprüfter Plan' + (S.pumpOk === false ? ", Befund „Pumpenflügel blockiert“" : "") + '</p></li><li class="wait"><time>in 24 h</time><p>Europäisches Formular für Reparaturinformationen mit Preis und Dauer</p></li><li><time>danach</time><p>Du nimmst das Angebot an oder lehnst ab</p></li></ol></div>' +
+        '<div class="notice"><span class="bar"></span><p class="small">Alternative: Reparatur beim Hersteller verlangen. Für Waschmaschinen besteht eine Herstellerpflicht.</p></div>' +
+        '<div class="actions"><a class="btn ghost" href="#entscheidung">← Optionen</a><button class="btn primary" type="button" data-go="rueckmeldung">Nach der Reparatur: Rückmeldung geben</button></div>';
+    }
+    var list = WORKSHOPS.map(function (w) {
+      return '<div class="card option' + (S.workshop === w.id ? " selected" : "") + '"><h3>' + w.name + '</h3><p class="small muted">' + w.dist + " · " + w.note + '</p><div><button class="btn ' + (S.workshop === w.id ? "primary" : "") + '" type="button" data-act="workshop" data-id="' + w.id + '">Auswählen</button></div></div>';
+    }).join("");
+    return progress(7) +
+      '<div class="stack" style="gap:6px"><h1>Werkstatt anfragen</h1><p class="lead">Die Werkstatt bekommt eine vorbereitete Fallakte und spart sich die Diagnose.</p></div>' +
+      (S.pumpOk === false ? '<div class="notice crit"><span class="bar"></span><p class="small">Aus der Anleitung: Pumpenflügel blockiert, Pumpe vermutlich defekt (Risikostufe 3).</p></div>' : "") +
+      list +
+      '<div class="actions"><a class="btn ghost" href="#entscheidung">← Optionen</a><button class="btn primary" type="button" data-act="sendWorkshop"' + (S.workshop ? "" : " disabled") + ">Fallakte senden und Angebot anfordern</button></div>";
+  };
+
+  R.rueckmeldung = function () {
+    var res = [["erfolgreich", "Repariert, Maschine pumpt ab"], ["teilweise", "Teilweise, Problem kommt wieder"], ["nicht", "Nicht repariert"]].map(function (r) {
+      return '<label class="check" for="res-' + r[0] + '"><input type="radio" name="res" id="res-' + r[0] + '" value="' + r[0] + '" ' + (S.result === r[0] ? "checked" : "") + "> " + r[1] + "</label>";
+    }).join("");
+    var scale = [1, 2, 3, 4, 5].map(function (n) { return '<button type="button" data-act="rate" data-val="' + n + '" aria-pressed="' + (S.rating === n) + '" aria-label="' + n + ' von 5">' + n + "</button>"; }).join("");
+    return progress(8) +
+      '<div class="stack" style="gap:6px"><h1>Wie ist es gelaufen?</h1><p class="lead">Deine Rückmeldung bewertet den Plan und die Prüfer:innen.</p></div>' +
+      '<form class="card" id="feedbackForm"><fieldset style="border:0;padding:0;margin:0;display:grid;gap:8px"><legend style="font-weight:600;font-size:14px;margin-bottom:6px">Ergebnis</legend>' + res + "</fieldset>" +
+      '<div class="field"><span style="font-weight:600;font-size:14px">Wie gut hat der Plan gepasst? (1 = gar nicht, 5 = genau)</span><div class="scale" role="group" aria-label="Bewertung des Plans">' + scale + "</div></div>" +
+      '<div class="field"><label for="kommentar">Was sollte im Plan anders sein?</label><textarea id="kommentar" placeholder="z. B. Schritt 4: Das Sieb saß sehr fest, eine Zange half."></textarea></div>' +
+      '<div class="field"><label for="endFoto">Foto vom Ergebnis</label><input type="file" id="endFoto" accept="image/*"></div>' +
+      '<label class="check" for="share"><input type="checkbox" id="share" ' + (S.share ? "checked" : "") + "> Fall anonymisiert für die Planbibliothek freigeben (Fotos ohne Personen und ohne Adresse)</label>" +
+      '<div class="actions"><span></span><button class="btn primary" type="submit">Rückmeldung senden</button></div></form>';
+  };
+
+  R.abschluss = function () {
+    var ok = S.result === "erfolgreich";
+    return '<div class="stack" style="gap:6px"><h1>' + (ok ? "Geschafft." : "Danke für die Rückmeldung.") + '</h1><p class="lead">' + (ok ? "Deine Waschmaschine pumpt wieder ab." : "Der Plan wird mit deiner Rückmeldung überarbeitet.") + "</p></div>" +
+      '<div class="cert"><span class="eyebrow" style="position:relative;z-index:1">Lernnachweis</span><h2>Abpumpfehler F21 beheben</h2><p class="small muted">Waschmaschine · Risikostufe 2 · ' + fmtDate(todayIso()) + " · " + CASE_ID + "</p>" +
+      '<ul style="margin:0;padding-left:18px"><li>Fehlercode einem Bauteil zuordnen</li><li>Laugenpumpe sicher entleeren</li><li>Flusensieb reinigen und Pumpenflügel prüfen</li><li>Wissen, wann die Werkstatt übernimmt</li></ul></div>' +
+      (S.share ? '<div class="notice good"><span class="bar"></span><p class="small">Dein Fall geht anonymisiert in die Planbibliothek. Bei gleichem Modell und Fehlerbild wird der geprüfte Plan wiederverwendet.</p></div>' : "") +
+      '<div class="actions"><a class="btn" href="#katalog">Lernpfade ansehen</a><button class="btn primary" type="button" data-act="reset">Neuen Fall anlegen</button></div>';
+  };
+
+  R.katalog = function () {
+    var f = S.catalogFilter;
+    var chips = [0, 1, 2, 3].map(function (n) { return '<button type="button" data-act="filter" data-val="' + n + '" aria-pressed="' + (f === n) + '">' + (n === 0 ? "Alle" : "Stufe " + n) + "</button>"; }).join("");
+    var cards = CATALOG.filter(function (c) { return !f || c.level === f; }).map(function (c) {
+      return '<div class="card option"><div class="row">' + levelPill(c.level, c.learnOnly) + '</div><h3>' + c.title + '</h3><p class="small muted">' + c.cat + (c.min ? " · ca. " + c.min + " Min" : "") + " · aus " + c.cases + ' realen Fällen kuratiert</p><div><button class="btn" type="button" data-act="openLesson" data-id="' + c.id + '">Lernpfad öffnen</button></div></div>';
+    }).join("");
+    return '<div class="stack" style="gap:6px"><span class="eyebrow">Lernmodus</span><h1>Vorgegebene Use Cases</h1><p class="lead">Kuratierte Lernpfade aus abgeschlossenen, anonymisierten Fällen.</p></div>' +
+      '<div class="choice" role="group" aria-label="Nach Risikostufe filtern">' + chips + "</div>" +
+      '<div class="grid2">' + cards + "</div>";
+  };
+
+  R.lernpfad = function () {
+    var c = CATALOG.filter(function (x) { return x.id === S.lesson; })[0];
+    var steps = '<ol class="steps">' + c.steps.map(function (s, i) { return '<li class="step"><span class="num">' + (i + 1) + '</span><div class="stack" style="gap:4px"><h3>' + s[0] + "</h3><p>" + s[1] + '</p><p class="why"><b>Warum:</b> ' + s[2] + "</p></div></li>"; }).join("") + "</ol>";
+    var allRight = true;
+    var quiz = c.quiz.map(function (q, qi) {
+      var key = c.id + "-" + qi, a = S.answers[key];
+      if (a !== q[2]) allRight = false;
+      var opts = q[1].map(function (o, oi) {
+        var cls = a === oi ? (oi === q[2] ? "right" : "wrong") : "";
+        return '<button type="button" class="' + cls + '" data-act="answer" data-key="' + key + '" data-val="' + oi + '">' + o + "</button>";
+      }).join("");
+      var fb = a == null ? "" : a === q[2] ? '<p class="small" style="color:var(--good)">Richtig.</p>' : '<p class="small" style="color:var(--crit)">Noch nicht. Lies den Schritt mit dem Warum noch einmal.</p>';
+      return '<div class="card"><b>' + (qi + 1) + ". " + q[0] + '</b><div class="quiz">' + opts + "</div>" + fb + "</div>";
+    }).join("");
+    var cert = allRight ? '<div class="cert"><span class="eyebrow" style="position:relative;z-index:1">Abschlussnachweis</span><h2>' + c.title + '</h2><p class="small muted">' + c.cat + " · Risikostufe " + c.level + " · " + fmtDate(todayIso()) + "</p></div>" : "";
+    return '<div class="stack" style="gap:8px"><a class="btn ghost" href="#katalog" style="justify-self:start">← Katalog</a><div class="row">' + levelPill(c.level, c.learnOnly) + '</div><h1>' + c.title + '</h1><p class="small muted">' + c.cat + " · aus " + c.cases + " realen Fällen kuratiert · bereits von der Crowd geprüft</p></div>" +
+      (c.learnOnly ? '<div class="notice crit"><span class="bar"></span><p class="small">Nur Lernen: Die Ausführung übernimmt eine befugte Fachkraft.</p></div>' : "") +
+      steps + "<h2>Prüffragen</h2>" + quiz + cert;
+  };
+
+  R.frei = function () {
+    var plan = "";
+    if (S.freeDone) {
+      plan = '<div class="stack" style="gap:8px"><div class="row"><span class="pill ki">KI-Entwurf</span><span class="pill">nicht objektspezifisch</span>' + levelPill(2) + "</div>" +
+        '<p class="small muted">Kein Typenschild und kein Handbuch: Der Plan ist allgemein. Risikostufe 2 wegen möglicher Leitungen in der Wand.</p></div>' +
+        '<ol class="steps">' + FREE_STEPS.map(function (s, i) {
+          return '<li class="step"><span class="num">' + (i + 1) + '</span><div class="stack" style="gap:4px"><h3>' + s[0] + "</h3><p>" + s[1] + '</p><p class="why"><b>Warum:</b> ' + s[2] + "</p>" + (s[3] ? '<div class="meta"><span class="pill">' + s[3] + "</span></div>" : "") + "</div></li>";
+        }).join("") + "</ol>" +
+        '<div class="card flat"><label class="check" for="freeReview"><input type="checkbox" id="freeReview" ' + (S.freeReview ? "checked" : "") + "> Crowd-Prüfung anfragen (optional bei freien Use Cases)</label>" +
+        (S.freeReview ? '<p class="small muted">Angefragt. Du siehst das Ergebnis unter „Crowd-Prüfung“.</p>' : "") + "</div>";
+    }
+    return '<div class="stack" style="gap:6px"><span class="eyebrow">Lernmodus</span><h1>Freier Use Case</h1><p class="lead">Beschreibe ein Vorhaben, auch eines, das du nur verstehen willst.</p></div>' +
+      '<form class="card" id="freeForm"><label for="freeText">Dein Vorhaben</label><textarea id="freeText">' + esc(S.freeText) + '</textarea><div class="actions"><span class="hint">Ohne Typenschild wird der Plan als „nicht objektspezifisch“ gekennzeichnet.</span><button class="btn primary" type="submit">Plan erstellen</button></div></form>' +
+      plan;
+  };
+
+  R.pruefer = function () {
+    var checks = ["Quelle passt zum Modell", "Reihenfolge stimmt", "Sicherheitshinweise sind vollständig", "Werkzeug ist richtig", "Aufwand ist realistisch"];
+    var list = checks.map(function (c, i) { return '<label class="check" for="rc' + i + '"><input type="checkbox" id="rc' + i + '" data-rcheck="' + i + '" ' + (S.reviewerChecks[i] ? "checked" : "") + "> " + c + "</label>"; }).join("");
+    var saved = S.reviewerSaved ? '<div class="notice good"><span class="bar"></span><p class="small">Prüfung gespeichert: ' + S.reviewerSaved + ". Die Nutzerin sieht das Ergebnis im Prüfstatus.</p></div>" : "";
+    return '<div class="stack" style="gap:6px"><span class="eyebrow">Crowd-Seite · Prüfmaske</span><h1>' + CASE_ID + ": Abpumpfehler F21</h1>" +
+      '<div class="row">' + levelPill(2) + '<span class="pill">Musterwerk MW 714 E</span><span class="pill">Zuteilung: Haushaltsgroßgeräte</span></div></div>' +
+      '<div class="card flat"><div class="row" style="justify-content:space-between"><b>Deine Reputation</b><span class="pill good">Fachnachweis geprüft</span></div><p class="small">Aus deinen letzten 20 freigegebenen Plänen wurden 18 erfolgreich repariert. Planfehler, die nach der Reparatur gemeldet werden, senken die Reputation.</p></div>' +
+      stepList(false) +
+      '<form class="card" id="reviewForm"><h3>Prüfpunkte</h3>' + list +
+      '<div class="field"><label for="rcomment">Kommentar oder Korrektur</label><textarea id="rcomment">Bei Schritt 3 fehlen Handtücher, da kommt mehr Wasser als man denkt.</textarea></div>' +
+      '<div class="row"><button class="btn primary" type="button" data-act="review" data-val="freigegeben">Freigeben</button><button class="btn signal" type="button" data-act="review" data-val="freigegeben mit Korrekturen">Freigeben mit Korrekturen</button><button class="btn" type="button" data-act="review" data-val="zurück an die KI">Zurück an die KI</button></div>' +
+      '<p class="hint">Interessenkonflikt: Nach deiner Prüfung kannst du diesen Fall nicht als Ausführende:r übernehmen.</p></form>' + saved;
+  };
+
+  /* ---------- Render ---------- */
+  function current() {
+    var h = (location.hash || "").replace("#", "");
+    return SCENES.some(function (s) { return s.id === h; }) ? h : "start";
+  }
+  function render() {
+    var id = current();
+    clearTimeout(timer);
+    if (id === "recherche" && S.recherche < TRAIL.length) {
+      if (reduced()) { S.recherche = TRAIL.length; }
+      else { timer = setTimeout(function () { S.recherche++; render(); }, S.recherche === 0 ? 350 : 650); }
+    }
+    $("#app").innerHTML = R[id]();
+    document.querySelectorAll("#scenes a").forEach(function (a) { a.setAttribute("aria-current", a.dataset.scene === id ? "page" : "false"); });
+    $("#sceneSelect").value = id;
+    $("#roleUser").setAttribute("aria-current", id !== "pruefer");
+    $("#roleReviewer").setAttribute("aria-current", id === "pruefer");
+    var s = SCENES.filter(function (x) { return x.id === id; })[0];
+    document.title = s.label + " · Reparatur-Lernplattform Prototyp";
+  }
+  function go(id) {
+    if (current() === id) { render(); } else { location.hash = id; }
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", function () { render(); window.scrollTo(0, 0); });
+
+  /* ---------- Aktionen ---------- */
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-go],[data-act]");
+    if (!el || el.disabled) return;
+    if (el.dataset.go) { go(el.dataset.go); return; }
+    var a = el.dataset.act, v = el.dataset.val;
+    switch (a) {
+      case "reset": S = freshState(); go("start"); toast("Prototyp zurückgesetzt."); break;
+      case "submitReview": S.planStatus = "pruefung"; go("pruefung"); break;
+      case "simulateReview": S.reviewDone = true; S.planStatus = "freigegeben"; render(); break;
+      case "contactSeller": toast("Im Prototyp nicht umgesetzt: Kontakt zum Verkäufer."); break;
+      case "choose": S.option = el.dataset.opt; go(OPTIONS.filter(function (o) { return o.id === S.option; })[0].go); break;
+      case "tool": S.tools[el.dataset.tool] = v; S.rentRequested = false; render(); break;
+      case "rent": S.rentRequested = true; render(); toast("Leihe über die Nachbarplattform angefragt (simuliert)."); break;
+      case "startSteps": S.stepIdx = 0; render(); window.scrollTo(0, 0); break;
+      case "nextStep": S.stepIdx++; render(); window.scrollTo(0, 0); break;
+      case "prevStep": S.stepIdx--; render(); window.scrollTo(0, 0); break;
+      case "pump": S.pumpOk = v === "ja"; render(); break;
+      case "help": toast("Hilfe-Anfrage mit Schritt " + (S.stepIdx + 1) + " an die Crowd gesendet (simuliert)."); break;
+      case "helper": S.helper = el.dataset.id; render(); break;
+      case "slot": S.slot = v; render(); break;
+      case "book": S.booked = true; render(); window.scrollTo(0, 0); break;
+      case "workshop": S.workshop = el.dataset.id; render(); break;
+      case "sendWorkshop": S.workshopSent = true; render(); window.scrollTo(0, 0); break;
+      case "rate": S.rating = Number(v); render(); break;
+      case "filter": S.catalogFilter = Number(v); render(); break;
+      case "openLesson": S.lesson = el.dataset.id; go("lernpfad"); break;
+      case "answer": S.answers[el.dataset.key] = Number(v); render(); break;
+      case "review":
+        S.reviewerSaved = v;
+        if (v !== "zurück an die KI") { S.reviewDone = true; S.planStatus = "freigegeben"; }
+        render(); toast("Prüfung gespeichert: " + v + ".");
+        break;
+    }
+  });
+
+  document.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.dataset.safety) { S.safety[t.dataset.safety] = t.checked; render(); }
+    else if (t.dataset.rcheck) { S.reviewerChecks[Number(t.dataset.rcheck)] = t.checked; }
+    else if (t.id === "videoOpt") { S.video = t.checked; }
+    else if (t.id === "kauf") { if (t.value) S.kaufdatum = t.value; }
+    else if (t.id === "share") { S.share = t.checked; }
+    else if (t.id === "freeReview") { S.freeReview = t.checked; render(); }
+    else if (t.name === "res") { S.result = t.value; }
+    else if (t.type === "file" && t.files && t.files.length) { toast("Foto „" + t.files[0].name + "“ hinzugefügt (bleibt im Browser)."); }
+  });
+
+  document.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = e.target;
+    if (f.id === "askForm") { S.question = $("#q").value || S.question; go("fall"); }
+    else if (f.id === "fallForm") { S.fehler = $("#fehler").value; S.kaufdatum = $("#kauf").value || S.kaufdatum; S.recherche = 0; go("recherche"); }
+    else if (f.id === "feedbackForm") { go("abschluss"); }
+    else if (f.id === "freeForm") { S.freeText = $("#freeText").value; S.freeDone = true; render(); }
+  });
+
+  buildNav();
+  render();
+})();
+</script>
+</body>
+</html>
